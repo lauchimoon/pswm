@@ -6,7 +6,6 @@
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
 
-#define DISPLAY_NAME ":1"
 #define FONT_PATH "variable"
 
 #define KEY_NEW XK_Return
