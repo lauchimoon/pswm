@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 {
     int display_number;
     if (argc < 2) {
-        display_number = 1;
+        display_number = 0;
         printf("pswm: Defaulting to DISPLAY=:%d\n", display_number);
     } else
         // TODO: error checking
