@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
@@ -8,11 +9,14 @@
 
 #define FONT_PATH "variable"
 
-#define KEY_NEW XK_Return
+#define KEY_NEW  XK_Return
 #define KEY_KILL XK_k
 
 #define BUTTON_LEFT  1
 #define BUTTON_RIGHT 3
+
+#define SHELL_NAME "/bin/sh"
+#define TERMINAL_NAME "xterm"
 
 typedef struct PSWMState {
     int display_number;
@@ -28,6 +32,8 @@ void grab_buttons(PSWMState *);
 void event_main_loop(PSWMState *);
 void handle_key(PSWMState *, XKeyEvent *);
 void handle_button(PSWMState *, XButtonEvent *);
+
+void spawn(PSWMState *, const char *);
 
 int main(int argc, char **argv)
 {
@@ -136,6 +142,7 @@ void handle_key(PSWMState *state, XKeyEvent *ev)
     switch (key) {
         case KEY_NEW:
             printf("pswm: key: New term\n");
+            spawn(state, TERMINAL_NAME);
             break;
         case KEY_KILL:
             printf("pswm: key: Kill\n");
@@ -157,5 +164,18 @@ void handle_button(PSWMState *state, XButtonEvent *ev)
             break;
         default:
             break;
+    }
+}
+
+void spawn(PSWMState *state, const char *cmd)
+{
+    if (!fork()) {
+        char display_string[256] = { 0 };
+        snprintf(display_string, 256, "DISPLAY=:%d", state->display_number);
+        putenv(display_string);
+
+        setsid();
+        execl(SHELL_NAME, SHELL_NAME, "-c", cmd, NULL);
+        exit(0);
     }
 }
