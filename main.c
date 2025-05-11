@@ -29,8 +29,8 @@ int setup(PSWMState *, int);
 void grab_keys(PSWMState *);
 void grab_buttons(PSWMState *);
 void event_main_loop(PSWMState *);
-void handle_key(PSWMState *, XKeyEvent *);
-void handle_button(PSWMState *, XButtonEvent *);
+void handle_key_press(PSWMState *, XKeyEvent *);
+void handle_button_press(PSWMState *, XButtonEvent *);
 
 void spawn(PSWMState *, const char *);
 
@@ -125,17 +125,17 @@ void event_main_loop(PSWMState *state)
 
         switch (ev.type) {
             case KeyPress:
-                handle_key(state, &ev.xkey);
+                handle_key_press(state, &ev.xkey);
                 break;
             case ButtonPress:
-                handle_button(state, &ev.xbutton);
+                handle_button_press(state, &ev.xbutton);
             default:
                 break;
         }
     }
 }
 
-void handle_key(PSWMState *state, XKeyEvent *ev)
+void handle_key_press(PSWMState *state, XKeyEvent *ev)
 {
     KeySym key = XkbKeycodeToKeysym(state->dpy, ev->keycode, 0, 0);
     switch (key) {
@@ -148,7 +148,7 @@ void handle_key(PSWMState *state, XKeyEvent *ev)
     }
 }
 
-void handle_button(PSWMState *state, XButtonEvent *ev)
+void handle_button_press(PSWMState *state, XButtonEvent *ev)
 {
     switch (ev->button) {
         case BUTTON_LEFT:
