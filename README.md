@@ -1,6 +1,6 @@
 # Pretty Simple Window Manager
 
-Inspired by evilwm and tinywm. Work in Progress
+Inspired by [evilwm](https://www.6809.org.uk/evilwm/). Work in Progress
 
 ## Quick start
 ```
@@ -15,3 +15,8 @@ $ ./pswm 1
 ### Keys
 - Return: spawn terminal
 - K: kill pswm
+
+## References
+- https://github.com/nikolas/evilwm
+- https://github.com/mackstann/tinywm
+- https://github.com/joewing/jwm
