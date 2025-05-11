@@ -16,11 +16,18 @@
 #define BUTTON_RIGHT 3
 
 #define SHELL_NAME "/bin/sh"
-#define TERMINAL_NAME "xterm"
+
+#define DEFAULT_MODMASK Mod1Mask
+#define DEFAULT_TERM    "xterm"
 
 #define MouseMask (ButtonPressMask|ButtonReleaseMask|PointerMotionMask)
 
 #define max(a, b) ((a) > (b))? (a) : (b)
+
+typedef struct PSWMConfig {
+    int modmask;
+    char *terminal;
+} PSWMConfig;
 
 typedef struct PSWMState {
     int display_number;
@@ -29,7 +36,7 @@ typedef struct PSWMState {
     Window root;
     int exit;
 
-    int modmask;
+    PSWMConfig config;
     Cursor cursor_drag;
 } PSWMState;
 
@@ -84,9 +91,12 @@ int setup(PSWMState *state, int display_number)
         return 2;
     }
 
-    state->exit = 0;
     state->root = DefaultRootWindow(state->dpy);
-    state->modmask = Mod1Mask;
+    state->exit = 0;
+
+    state->config.modmask = DEFAULT_MODMASK;
+    state->config.terminal = DEFAULT_TERM;
+
     state->cursor_drag = XCreateFontCursor(state->dpy, XC_fleur);
 
     unsigned int input_mask = KeyPressMask|MouseMask;
@@ -110,9 +120,9 @@ void grab_keys(PSWMState *state)
 
     for (int i = 0; i < NUM_GRABS; ++i) {
         KeyCode keycode = XKeysymToKeycode(state->dpy, keys_to_grab[i]);
-        XGrabKey(state->dpy, keycode, state->modmask, state->root, True,
+        XGrabKey(state->dpy, keycode, state->config.modmask, state->root, True,
                 GrabModeAsync, GrabModeAsync);
-        XGrabKey(state->dpy, keycode, state->modmask|LockMask, state->root, True,
+        XGrabKey(state->dpy, keycode, state->config.modmask|LockMask, state->root, True,
                 GrabModeAsync, GrabModeAsync);
     }
 }
@@ -124,7 +134,7 @@ void grab_buttons(PSWMState *state)
 #define NUM_BUTTONS 2
     unsigned int buttons[NUM_BUTTONS] = { BUTTON_LEFT, BUTTON_RIGHT };
     for (int i = 0; i < NUM_BUTTONS; ++i) {
-        XGrabButton(state->dpy, buttons[i], state->modmask, state->root,
+        XGrabButton(state->dpy, buttons[i], state->config.modmask, state->root,
                 True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask,
                 GrabModeAsync, GrabModeAsync, None, None);
     }
@@ -138,7 +148,7 @@ void event_main_loop(PSWMState *state)
 
         switch (ev.type) {
             case KeyPress:
-                if ((ev.xkey.state & Mod1Mask) == Mod1Mask)
+                if ((ev.xkey.state & state->config.modmask) == state->config.modmask)
                     handle_key_press(state, &ev.xkey);
                 break;
             case ButtonPress:
@@ -155,8 +165,7 @@ void handle_key_press(PSWMState *state, XKeyEvent *ev)
     KeySym key = XkbKeycodeToKeysym(state->dpy, ev->keycode, 0, 0);
     switch (key) {
         case KEY_NEW:
-            printf("pswm: key: New term\n");
-            spawn(state, TERMINAL_NAME);
+            spawn(state, state->config.terminal);
             break;
         default:
             break;
@@ -167,11 +176,9 @@ void handle_button_press(PSWMState *state, XButtonEvent *ev)
 {
     switch (ev->button) {
         case BUTTON_LEFT:
-            printf("pswm: button: Left mouse (window: %d)\n", ev->subwindow);
             drag_window(state, ev);
             break;
         case BUTTON_RIGHT:
-            printf("pswm: button: Right mouse (window: %d)\n", ev->subwindow);
             resize_window(state, ev);
             break;
         default:
