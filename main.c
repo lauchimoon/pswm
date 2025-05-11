@@ -12,11 +12,12 @@
 
 #define FONT_PATH "variable"
 
-#define KEY_NEW   XK_Return
-#define KEY_LEFT  XK_h
-#define KEY_DOWN  XK_j
-#define KEY_UP    XK_k
-#define KEY_RIGHT XK_l
+#define KEY_NEW      XK_Return
+#define KEY_LEFT     XK_h
+#define KEY_DOWN     XK_j
+#define KEY_UP       XK_k
+#define KEY_RIGHT    XK_l
+#define KEY_MAXIMIZE XK_x
 
 #define BUTTON_LEFT  1
 #define BUTTON_RIGHT 3
@@ -65,6 +66,8 @@ void handle_button_press(PSWMState *, XButtonEvent *);
 
 void spawn(PSWMState *, const char *);
 void move_window(PSWMState *, KeySym, XKeyEvent *);
+void maximize_window(PSWMState *, XKeyEvent *);
+
 void drag_window(PSWMState *, XButtonEvent *);
 void resize_window(PSWMState *, XButtonEvent *);
 
@@ -250,7 +253,7 @@ void grab_keys(PSWMState *state)
     XUngrabKey(state->dpy, AnyKey, AnyModifier, state->root);
 
     KeySym keys_to_grab[] = {
-        KEY_NEW, KEY_LEFT, KEY_DOWN, KEY_UP, KEY_RIGHT,
+        KEY_NEW, KEY_LEFT, KEY_DOWN, KEY_UP, KEY_RIGHT, KEY_MAXIMIZE,
     };
 
 #define NUM_GRABS (sizeof(keys_to_grab)/sizeof(keys_to_grab[0]))
@@ -300,6 +303,7 @@ void event_main_loop(PSWMState *state)
 void handle_key_press(PSWMState *state, XKeyEvent *ev)
 {
     KeySym key = XkbKeycodeToKeysym(state->dpy, ev->keycode, 0, 0);
+
     switch (key) {
         case KEY_NEW:
             spawn(state, state->config.terminal);
@@ -307,6 +311,9 @@ void handle_key_press(PSWMState *state, XKeyEvent *ev)
         case KEY_LEFT: case KEY_DOWN: case KEY_UP: case KEY_RIGHT:
             if (ev->subwindow != None)
                 move_window(state, key, ev);
+            break;
+        case KEY_MAXIMIZE:
+            maximize_window(state, ev);
             break;
         default:
             break;
@@ -359,6 +366,14 @@ void move_window(PSWMState *state, KeySym key, XKeyEvent *ev)
             XMoveWindow(state->dpy, ev->subwindow, attr.x + 16, attr.y);
             break;
     }
+}
+
+void maximize_window(PSWMState *state, XKeyEvent *ev)
+{
+    int display_width = XDisplayWidth(state->dpy, 0);
+    int display_height = XDisplayHeight(state->dpy, 0);
+
+    XMoveResizeWindow(state->dpy, ev->subwindow, 0, 0, display_width, display_height);
 }
 
 void drag_window(PSWMState *state, XButtonEvent *ev)
