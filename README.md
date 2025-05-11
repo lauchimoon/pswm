@@ -1,6 +1,6 @@
 # Pretty Simple Window Manager
 
-Inspired by [evilwm](https://www.6809.org.uk/evilwm/). Work in Progress
+Inspired by [evilwm](https://www.6809.org.uk/evilwm/).
 
 ## Quick start
 ```
@@ -12,9 +12,21 @@ $ DISPLAY=:1 xsetroot -solid \#400040 -cursor_name top_left_arrow
 $ ./pswm 1
 ```
 
-### Keys
-- Return: spawn terminal
-- K: kill pswm
+## Usage
+
+### Keyboard
+- Mod + Return: spawn terminal
+
+### Mouse
+- Mod + LeftButton: drag window
+- Mod + RightButton: resize window
+
+Mod and terminal are configured on a `.pswmrc` file which must be located at your home directory. Here's an example:
+```
+mask mod1
+term xterm
+```
+In case this file didn't exist beforehand, pswm will create it with the defaults stated at `main.c`
 
 ## References
 - https://github.com/nikolas/evilwm

@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <sys/wait.h>
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
@@ -17,6 +19,7 @@
 
 #define SHELL_NAME "/bin/sh"
 
+#define LINE_SIZE 1024
 #define DEFAULT_MODMASK Mod1Mask
 #define DEFAULT_TERM    "xterm"
 
@@ -25,6 +28,8 @@
 #define max(a, b) ((a) > (b))? (a) : (b)
 
 typedef struct PSWMConfig {
+    char *path;
+
     int modmask;
     char *terminal;
 } PSWMConfig;
@@ -43,6 +48,11 @@ typedef struct PSWMState {
 int numeric_string(char *);
 
 int setup(PSWMState *, int);
+void create_config_file(char *);
+void read_config_file(FILE *, PSWMConfig *);
+char **split_line(char *, int *);
+unsigned int parse_modmask(char *);
+char *parse_term(char *);
 void grab_keys(PSWMState *);
 void grab_buttons(PSWMState *);
 void event_main_loop(PSWMState *);
@@ -55,14 +65,14 @@ void resize_window(PSWMState *, XButtonEvent *);
 
 int main(int argc, char **argv)
 {
-    int display_number;
+    int display_number = 0;
     if (argc < 2) {
         display_number = 0;
         printf("pswm: Defaulting to DISPLAY=:%d\n", display_number);
     } else {
         char *display = argv[1];
         if (!numeric_string(display)) {
-            printf("'%s' is not a valid display\n", display);
+            printf("pswm: '%s' is not a valid display\n", display);
             return 1;
         }
 
@@ -76,6 +86,8 @@ int main(int argc, char **argv)
 
     event_main_loop(&state);
 
+    free(state.config.terminal);
+    free(state.config.path);
     XCloseDisplay(state.dpy);
     return 0;
 }
@@ -111,8 +123,19 @@ int setup(PSWMState *state, int display_number)
     state->root = DefaultRootWindow(state->dpy);
     state->exit = 0;
 
-    state->config.modmask = DEFAULT_MODMASK;
-    state->config.terminal = DEFAULT_TERM;
+#define PATH_SIZE 256
+    state->config.path = calloc(PATH_SIZE + 1, sizeof(char));
+    strcat(state->config.path, getenv("HOME"));
+    strcat(state->config.path, "/.pswmrc");
+
+    FILE *f = fopen(state->config.path, "r");
+    if (!f) {
+        create_config_file(state->config.path);
+        f = fopen(state->config.path, "r");
+    }
+
+    read_config_file(f, &state->config);
+    printf("mod: %d | term: %s\n", state->config.modmask, state->config.terminal);
 
     state->cursor_drag = XCreateFontCursor(state->dpy, XC_fleur);
 
@@ -123,6 +146,98 @@ int setup(PSWMState *state, int display_number)
     grab_buttons(state);
 
     return 0;
+}
+
+void create_config_file(char *path)
+{
+    FILE *f = fopen(path, "w");
+    fprintf(f, "mask mod1\nterm xterm\n");
+    fclose(f);
+}
+
+void read_config_file(FILE *f, PSWMConfig *config)
+{
+    char line[LINE_SIZE] = { 0 };
+
+    while (fgets(line, LINE_SIZE, f) != NULL) {
+        int split_count = 0;
+        line[strcspn(line, "\n")] = '\0';
+        char **split = split_line(line, &split_count);
+
+        if (split_count < 2)
+            continue;
+
+        if (strcmp(split[0], "mask") == 0)
+            config->modmask = parse_modmask(split[1]);
+        else if (strcmp(split[0], "term") == 0) {
+            char *term = parse_term(split[1]);
+            config->terminal = calloc(strlen(term) + 1, sizeof(char));
+            strcpy(config->terminal, term);
+        }
+
+        for (int i = 0; i < split_count; ++i)
+            free(split[i]);
+        free(split);
+    }
+}
+
+char **split_line(char *text, int *count)
+{
+    int capacity = 2;
+    char **result = calloc(capacity, sizeof(char *));
+
+    char buffer[LINE_SIZE] = { 0 };
+    int buffer_index = 0;
+    memset(buffer, 0, LINE_SIZE);
+
+    char delim = ' ';
+
+    for (int i = 0; ; ++i) {
+        buffer[buffer_index] = text[i];
+        ++buffer_index;
+
+        if (buffer[buffer_index - 1] == delim || text[i] == '\0') {
+            buffer[buffer_index - 1] = '\0';
+            result[*count] = calloc(buffer_index + 1, sizeof(char));
+            strcpy(result[*count], buffer);
+            ++(*count);
+
+            buffer_index = 0;
+
+            if (text[i] == '\0')
+                break;
+        }
+    }
+
+    return result;
+}
+
+unsigned int parse_modmask(char *text)
+{
+    if (strcmp(text, "mod1") == 0) return Mod1Mask;
+    else if (strcmp(text, "mod2") == 0) return Mod2Mask;
+    else if (strcmp(text, "mod3") == 0) return Mod3Mask;
+    else if (strcmp(text, "mod4") == 0) return Mod4Mask;
+    else if (strcmp(text, "mod5") == 0) return Mod5Mask;
+    else return DEFAULT_MODMASK;
+}
+
+char *parse_term(char *text)
+{
+    // Check if terminal is installed
+    pid_t pid;
+    int status;
+
+    pid = fork();
+    if (!pid)
+        execl("which", text);
+    else {
+        wait(&status);
+        if (WIFEXITED(status) && WEXITSTATUS(status) != 0) // Term is not installed
+            return DEFAULT_TERM;
+    }
+
+    return text;
 }
 
 void grab_keys(PSWMState *state)
