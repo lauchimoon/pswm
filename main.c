@@ -199,6 +199,8 @@ void drag_window(PSWMState *state, XButtonEvent *ev)
 
     XEvent xev;
 
+    XRaiseWindow(state->dpy, ev->subwindow);
+
     for (;;) {
         XMaskEvent(state->dpy, MouseMask, &xev);
         switch (xev.type) {
@@ -224,6 +226,8 @@ void resize_window(PSWMState *state, XButtonEvent *ev)
     XGetWindowAttributes(state->dpy, ev->subwindow, &attr);
 
     XEvent xev;
+
+    XRaiseWindow(state->dpy, ev->subwindow);
 
     for (;;) {
         XMaskEvent(state->dpy, MouseMask, &xev);
