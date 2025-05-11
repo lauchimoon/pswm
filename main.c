@@ -77,7 +77,7 @@ int setup(PSWMState *state, int display_number)
     }
 
     state->exit = 0;
-    state->root = XDefaultRootWindow(state->dpy);
+    state->root = DefaultRootWindow(state->dpy);
     state->modmask = Mod1Mask;
 
     unsigned int input_mask = KeyPressMask|ButtonPressMask|ButtonReleaseMask|PointerMotionMask;
