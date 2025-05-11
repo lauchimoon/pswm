@@ -23,6 +23,8 @@ typedef struct PSWMState {
     XFontStruct *font;
     Window root;
     int exit;
+
+    int modmask;
 } PSWMState;
 
 int setup(PSWMState *, int);
@@ -76,6 +78,7 @@ int setup(PSWMState *state, int display_number)
 
     state->exit = 0;
     state->root = XDefaultRootWindow(state->dpy);
+    state->modmask = Mod1Mask;
 
     unsigned int input_mask = KeyPressMask|ButtonPressMask|ButtonReleaseMask|PointerMotionMask;
     XSelectInput(state->dpy, state->root, input_mask);
@@ -98,8 +101,9 @@ void grab_keys(PSWMState *state)
 
     for (int i = 0; i < NUM_GRABS; ++i) {
         KeyCode keycode = XKeysymToKeycode(state->dpy, keys_to_grab[i]);
-        unsigned int mask = ControlMask|Mod1Mask;
-        XGrabKey(state->dpy, keycode, mask, state->root, True,
+        XGrabKey(state->dpy, keycode, state->modmask, state->root, True,
+                GrabModeAsync, GrabModeAsync);
+        XGrabKey(state->dpy, keycode, state->modmask|LockMask, state->root, True,
                 GrabModeAsync, GrabModeAsync);
     }
 }
@@ -111,7 +115,7 @@ void grab_buttons(PSWMState *state)
 #define NUM_BUTTONS 2
     unsigned int buttons[NUM_BUTTONS] = { BUTTON_LEFT, BUTTON_RIGHT };
     for (int i = 0; i < NUM_BUTTONS; ++i) {
-        XGrabButton(state->dpy, buttons[i], Mod1Mask, state->root,
+        XGrabButton(state->dpy, buttons[i], state->modmask, state->root,
                 True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask,
                 GrabModeAsync, GrabModeAsync, None, None);
     }
@@ -125,7 +129,8 @@ void event_main_loop(PSWMState *state)
 
         switch (ev.type) {
             case KeyPress:
-                handle_key_press(state, &ev.xkey);
+                if ((ev.xkey.state & Mod1Mask) == Mod1Mask)
+                    handle_key_press(state, &ev.xkey);
                 break;
             case ButtonPress:
                 handle_button_press(state, &ev.xbutton);
