@@ -28,6 +28,9 @@ term xterm
 ```
 In case this file didn't exist beforehand, pswm will create it with the defaults stated at `main.c`
 
+## Demo
+![](https://github.com/lauchimoon/pswm/blob/main/assets/ss.png?raw=True)
+
 ## References
 - https://github.com/nikolas/evilwm
 - https://github.com/mackstann/tinywm
