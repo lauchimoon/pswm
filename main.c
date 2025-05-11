@@ -12,7 +12,11 @@
 
 #define FONT_PATH "variable"
 
-#define KEY_NEW  XK_Return
+#define KEY_NEW   XK_Return
+#define KEY_LEFT  XK_h
+#define KEY_DOWN  XK_j
+#define KEY_UP    XK_k
+#define KEY_RIGHT XK_l
 
 #define BUTTON_LEFT  1
 #define BUTTON_RIGHT 3
@@ -60,6 +64,7 @@ void handle_key_press(PSWMState *, XKeyEvent *);
 void handle_button_press(PSWMState *, XButtonEvent *);
 
 void spawn(PSWMState *, const char *);
+void move_window(PSWMState *, KeySym, XKeyEvent *);
 void drag_window(PSWMState *, XButtonEvent *);
 void resize_window(PSWMState *, XButtonEvent *);
 
@@ -245,7 +250,7 @@ void grab_keys(PSWMState *state)
     XUngrabKey(state->dpy, AnyKey, AnyModifier, state->root);
 
     KeySym keys_to_grab[] = {
-        KEY_NEW,
+        KEY_NEW, KEY_LEFT, KEY_DOWN, KEY_UP, KEY_RIGHT,
     };
 
 #define NUM_GRABS (sizeof(keys_to_grab)/sizeof(keys_to_grab[0]))
@@ -299,6 +304,10 @@ void handle_key_press(PSWMState *state, XKeyEvent *ev)
         case KEY_NEW:
             spawn(state, state->config.terminal);
             break;
+        case KEY_LEFT: case KEY_DOWN: case KEY_UP: case KEY_RIGHT:
+            if (ev->subwindow != None)
+                move_window(state, key, ev);
+            break;
         default:
             break;
     }
@@ -328,6 +337,27 @@ void spawn(PSWMState *state, const char *cmd)
         setsid();
         execl(SHELL_NAME, SHELL_NAME, "-c", cmd, NULL);
         exit(0);
+    }
+}
+
+void move_window(PSWMState *state, KeySym key, XKeyEvent *ev)
+{
+    XWindowAttributes attr;
+    XGetWindowAttributes(state->dpy, ev->subwindow, &attr);
+
+    switch (key) {
+        case KEY_LEFT:
+            XMoveWindow(state->dpy, ev->subwindow, attr.x - 16, attr.y);
+            break;
+        case KEY_DOWN:
+            XMoveWindow(state->dpy, ev->subwindow, attr.x, attr.y + 16);
+            break;
+        case KEY_UP:
+            XMoveWindow(state->dpy, ev->subwindow, attr.x, attr.y - 16);
+            break;
+        case KEY_RIGHT:
+            XMoveWindow(state->dpy, ev->subwindow, attr.x + 16, attr.y);
+            break;
     }
 }
 
