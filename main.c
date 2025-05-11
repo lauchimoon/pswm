@@ -6,6 +6,7 @@
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
+#include <X11/cursorfont.h>
 
 #define FONT_PATH "variable"
 
@@ -17,6 +18,8 @@
 #define SHELL_NAME "/bin/sh"
 #define TERMINAL_NAME "xterm"
 
+#define MouseMask (ButtonPressMask|ButtonReleaseMask|PointerMotionMask)
+
 typedef struct PSWMState {
     int display_number;
     Display *dpy;
@@ -25,6 +28,7 @@ typedef struct PSWMState {
     int exit;
 
     int modmask;
+    Cursor cursor_drag;
 } PSWMState;
 
 int setup(PSWMState *, int);
@@ -35,6 +39,7 @@ void handle_key_press(PSWMState *, XKeyEvent *);
 void handle_button_press(PSWMState *, XButtonEvent *);
 
 void spawn(PSWMState *, const char *);
+void drag(PSWMState *, XButtonEvent *);
 
 int main(int argc, char **argv)
 {
@@ -79,8 +84,9 @@ int setup(PSWMState *state, int display_number)
     state->exit = 0;
     state->root = DefaultRootWindow(state->dpy);
     state->modmask = Mod1Mask;
+    state->cursor_drag = XCreateFontCursor(state->dpy, XC_fleur);
 
-    unsigned int input_mask = KeyPressMask|ButtonPressMask|ButtonReleaseMask|PointerMotionMask;
+    unsigned int input_mask = KeyPressMask|MouseMask;
     XSelectInput(state->dpy, state->root, input_mask);
 
     grab_keys(state);
@@ -133,7 +139,8 @@ void event_main_loop(PSWMState *state)
                     handle_key_press(state, &ev.xkey);
                 break;
             case ButtonPress:
-                handle_button_press(state, &ev.xbutton);
+                if (ev.xbutton.subwindow != None)
+                    handle_button_press(state, &ev.xbutton);
             default:
                 break;
         }
@@ -157,10 +164,11 @@ void handle_button_press(PSWMState *state, XButtonEvent *ev)
 {
     switch (ev->button) {
         case BUTTON_LEFT:
-            printf("pswm: button: Left mouse\n");
+            printf("pswm: button: Left mouse (window: %d)\n", ev->subwindow);
+            drag(state, ev);
             break;
         case BUTTON_RIGHT:
-            printf("pswm: button: Right mouse\n");
+            printf("pswm: button: Right mouse (window: %d)\n", ev->subwindow);
             break;
         default:
             break;
@@ -177,5 +185,28 @@ void spawn(PSWMState *state, const char *cmd)
         setsid();
         execl(SHELL_NAME, SHELL_NAME, "-c", cmd, NULL);
         exit(0);
+    }
+}
+
+void drag(PSWMState *state, XButtonEvent *ev)
+{
+    XWindowAttributes attr;
+    XGetWindowAttributes(state->dpy, ev->subwindow, &attr);
+
+    XEvent xev;
+
+    for (;;) {
+        XMaskEvent(state->dpy, MouseMask, &xev);
+        switch (xev.type) {
+            case MotionNotify:
+                if (xev.xmotion.root != ev->root)
+                    break;
+
+                int xdiff = xev.xbutton.x_root - ev->x_root;
+                int ydiff = xev.xbutton.y_root - ev->y_root;
+                XMoveWindow(state->dpy, ev->subwindow, attr.x + xdiff, attr.y + ydiff);
+                break;
+            default: break;
+        }
     }
 }
