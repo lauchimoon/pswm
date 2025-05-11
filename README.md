@@ -6,7 +6,7 @@ Inspired by [evilwm](https://www.6809.org.uk/evilwm/). Work in Progress
 ```
 $ git clone https://github.com/lauchimoon/pswm.git
 $ cd pswm
-$ Xephyr -br -ac -noreset -screen 800x600 :1 &
+$ Xephyr -br -ac -noreset -screen 800x600 -resizeable :1 &
 $ gcc -o pswm main.c -lX11
 $ DISPLAY=:1 xsetroot -solid \#400040 -cursor_name top_left_arrow
 $ ./pswm 1
