@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/wait.h>
+#include <ctype.h>
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
@@ -40,6 +40,8 @@ typedef struct PSWMState {
     Cursor cursor_drag;
 } PSWMState;
 
+int numeric_string(char *);
+
 int setup(PSWMState *, int);
 void grab_keys(PSWMState *);
 void grab_buttons(PSWMState *);
@@ -57,9 +59,15 @@ int main(int argc, char **argv)
     if (argc < 2) {
         display_number = 0;
         printf("pswm: Defaulting to DISPLAY=:%d\n", display_number);
-    } else
-        // TODO: error checking
+    } else {
+        char *display = argv[1];
+        if (!numeric_string(display)) {
+            printf("'%s' is not a valid display\n", display);
+            return 1;
+        }
+
         display_number = atoi(argv[1]);
+    }
 
     PSWMState state = { 0 };
     int ret = setup(&state, display_number);
@@ -70,6 +78,15 @@ int main(int argc, char **argv)
 
     XCloseDisplay(state.dpy);
     return 0;
+}
+
+int numeric_string(char *s)
+{
+    for (int i = 0; s[i] != '\0'; ++i)
+        if (!isdigit(s[i]))
+            return 0;
+
+    return 1;
 }
 
 int setup(PSWMState *state, int display_number)
