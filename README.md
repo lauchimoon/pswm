@@ -16,6 +16,11 @@ $ ./pswm 1
 
 ### Keyboard
 - Mod + Return: spawn terminal
+- Mod + H: move window to the left
+- Mod + J: move window downwards
+- Mod + K: move window upwards
+- Mod + L: move window to the right
+- Mod + X: maximize window (resize to display dimensions)
 
 ### Mouse
 - Mod + LeftButton: drag window
