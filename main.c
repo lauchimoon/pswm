@@ -20,6 +20,8 @@
 
 #define MouseMask (ButtonPressMask|ButtonReleaseMask|PointerMotionMask)
 
+#define max(a, b) ((a) > (b))? (a) : (b)
+
 typedef struct PSWMState {
     int display_number;
     Display *dpy;
@@ -39,7 +41,8 @@ void handle_key_press(PSWMState *, XKeyEvent *);
 void handle_button_press(PSWMState *, XButtonEvent *);
 
 void spawn(PSWMState *, const char *);
-void drag(PSWMState *, XButtonEvent *);
+void drag_window(PSWMState *, XButtonEvent *);
+void resize_window(PSWMState *, XButtonEvent *);
 
 int main(int argc, char **argv)
 {
@@ -165,10 +168,11 @@ void handle_button_press(PSWMState *state, XButtonEvent *ev)
     switch (ev->button) {
         case BUTTON_LEFT:
             printf("pswm: button: Left mouse (window: %d)\n", ev->subwindow);
-            drag(state, ev);
+            drag_window(state, ev);
             break;
         case BUTTON_RIGHT:
             printf("pswm: button: Right mouse (window: %d)\n", ev->subwindow);
+            resize_window(state, ev);
             break;
         default:
             break;
@@ -188,7 +192,7 @@ void spawn(PSWMState *state, const char *cmd)
     }
 }
 
-void drag(PSWMState *state, XButtonEvent *ev)
+void drag_window(PSWMState *state, XButtonEvent *ev)
 {
     XWindowAttributes attr;
     XGetWindowAttributes(state->dpy, ev->subwindow, &attr);
@@ -206,6 +210,36 @@ void drag(PSWMState *state, XButtonEvent *ev)
                 int ydiff = xev.xbutton.y_root - ev->y_root;
                 XMoveWindow(state->dpy, ev->subwindow, attr.x + xdiff, attr.y + ydiff);
                 break;
+            case ButtonRelease:
+                ev->subwindow = None;
+                return;
+            default: break;
+        }
+    }
+}
+
+void resize_window(PSWMState *state, XButtonEvent *ev)
+{
+    XWindowAttributes attr;
+    XGetWindowAttributes(state->dpy, ev->subwindow, &attr);
+
+    XEvent xev;
+
+    for (;;) {
+        XMaskEvent(state->dpy, MouseMask, &xev);
+        switch (xev.type) {
+            case MotionNotify:
+                if (xev.xmotion.root != ev->root)
+                    break;
+
+                int xdiff = xev.xbutton.x_root - ev->x_root;
+                int ydiff = xev.xbutton.y_root - ev->y_root;
+                XResizeWindow(state->dpy, ev->subwindow,
+                              max(1, attr.width + xdiff), max(1, attr.height + ydiff));
+                break;
+            case ButtonRelease:
+                ev->subwindow = None;
+                return;
             default: break;
         }
     }
