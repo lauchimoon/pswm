@@ -10,7 +10,6 @@
 #define FONT_PATH "variable"
 
 #define KEY_NEW  XK_Return
-#define KEY_KILL XK_k
 
 #define BUTTON_LEFT  1
 #define BUTTON_RIGHT 3
@@ -92,7 +91,7 @@ void grab_keys(PSWMState *state)
     XUngrabKey(state->dpy, AnyKey, AnyModifier, state->root);
 
     KeySym keys_to_grab[] = {
-        KEY_NEW, KEY_KILL,
+        KEY_NEW,
     };
 
 #define NUM_GRABS (sizeof(keys_to_grab)/sizeof(keys_to_grab[0]))
@@ -143,10 +142,6 @@ void handle_key(PSWMState *state, XKeyEvent *ev)
         case KEY_NEW:
             printf("pswm: key: New term\n");
             spawn(state, TERMINAL_NAME);
-            break;
-        case KEY_KILL:
-            printf("pswm: key: Kill\n");
-            state->exit = 1;
             break;
         default:
             break;
