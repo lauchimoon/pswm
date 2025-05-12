@@ -34,7 +34,7 @@ term xterm
 In case this file didn't exist beforehand, pswm will create it with the defaults stated at `main.c`
 
 ## Demo
-![](https://github.com/lauchimoon/pswm/blob/main/assets/ss.png?raw=True)
+![](https://raw.githubusercontent.com/lauchimoon/pswm/refs/heads/main/assets/ss.png)
 
 ## References
 - https://github.com/nikolas/evilwm
