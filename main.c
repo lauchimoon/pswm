@@ -29,6 +29,7 @@
 #define DEFAULT_TERM    "xterm"
 
 #define MouseMask (ButtonPressMask|ButtonReleaseMask|PointerMotionMask)
+#define ChildMask (SubstructureRedirectMask|SubstructureNotifyMask)
 
 #define max(a, b) ((a) > (b))? (a) : (b)
 
@@ -61,8 +62,10 @@ char *parse_term(char *);
 void grab_keys(PSWMState *);
 void grab_buttons(PSWMState *);
 void event_main_loop(PSWMState *);
+
 void handle_key_press(PSWMState *, XKeyEvent *);
 void handle_button_press(PSWMState *, XButtonEvent *);
+void handle_map_request(PSWMState *, XMapRequestEvent *);
 
 void spawn(PSWMState *, const char *);
 void move_window(PSWMState *, KeySym, XKeyEvent *);
@@ -143,11 +146,10 @@ int setup(PSWMState *state, int display_number)
     }
 
     read_config_file(f, &state->config);
-    printf("mod: %d | term: %s\n", state->config.modmask, state->config.terminal);
 
     state->cursor_drag = XCreateFontCursor(state->dpy, XC_fleur);
 
-    unsigned int input_mask = KeyPressMask|MouseMask;
+    unsigned int input_mask = KeyPressMask|MouseMask|ChildMask;
     XSelectInput(state->dpy, state->root, input_mask);
 
     grab_keys(state);
@@ -288,12 +290,18 @@ void event_main_loop(PSWMState *state)
 
         switch (ev.type) {
             case KeyPress:
+                printf("Hello key\n");
                 if ((ev.xkey.state & state->config.modmask) == state->config.modmask)
                     handle_key_press(state, &ev.xkey);
                 break;
             case ButtonPress:
+                printf("Hello button\n");
                 if (ev.xbutton.subwindow != None)
                     handle_button_press(state, &ev.xbutton);
+                break;
+            case MapRequest:
+                handle_map_request(state, &ev.xmaprequest);
+                break;
             default:
                 break;
         }
@@ -332,6 +340,12 @@ void handle_button_press(PSWMState *state, XButtonEvent *ev)
         default:
             break;
     }
+}
+
+void handle_map_request(PSWMState *state, XMapRequestEvent *ev)
+{
+    printf("pswm: map request sent\n");
+    XMapWindow(state->dpy, ev->window);
 }
 
 void spawn(PSWMState *state, const char *cmd)
