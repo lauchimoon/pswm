@@ -290,12 +290,10 @@ void event_main_loop(PSWMState *state)
 
         switch (ev.type) {
             case KeyPress:
-                printf("Hello key\n");
                 if ((ev.xkey.state & state->config.modmask) == state->config.modmask)
                     handle_key_press(state, &ev.xkey);
                 break;
             case ButtonPress:
-                printf("Hello button\n");
                 if (ev.xbutton.subwindow != None)
                     handle_button_press(state, &ev.xbutton);
                 break;
