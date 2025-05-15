@@ -35,6 +35,7 @@
 #define max(a, b) ((a) > (b))? (a) : (b)
 
 typedef struct _PSWMClient {
+    Window window;
     XWindowAttributes init_attr;
     XWindowAttributes attr;
     int maximized;
@@ -59,7 +60,7 @@ typedef struct PSWMState {
     int exit;
 
     PSWMConfig config;
-    PSWMClient *currrent_client;
+    PSWMClient *current_client;
     ClientList clients;
     Cursor cursor_drag;
 } PSWMState;
@@ -129,6 +130,7 @@ PSWMClient *client_make_from_client(PSWMClient *client)
 {
     PSWMClient *c = malloc(sizeof(PSWMClient));
 
+    c->window = client->window;
     c->init_attr = client->init_attr;
     c->attr = client->attr;
     c->maximized = client->maximized;
@@ -173,8 +175,9 @@ PSWMClient *init_client(PSWMState *state, Window w)
 {
     PSWMClient *c = malloc(sizeof(PSWMClient));
 
-    XGetWindowAttributes(state->dpy, w, &c->init_attr);
-    XGetWindowAttributes(state->dpy, w, &c->attr);
+    c->window = w;
+    XGetWindowAttributes(state->dpy, c->window, &c->init_attr);
+    XGetWindowAttributes(state->dpy, c->window, &c->attr);
     c->maximized = 0;
 
     return c;
@@ -232,7 +235,7 @@ int setup(PSWMState *state, int display_number)
     grab_keys(state);
     grab_buttons(state);
 
-    state->currrent_client = NULL;
+    state->current_client = NULL;
     state->clients = clientlist_new();
 
     return 0;
@@ -380,6 +383,10 @@ void event_main_loop(PSWMState *state)
             case MapRequest:
                 handle_map_request(state, &ev.xmaprequest);
                 break;
+            case UnmapNotify:
+                // TODO: update window tree so next_client() won't try
+                // to raise a closed window
+                break;
             default:
                 break;
         }
@@ -395,7 +402,7 @@ void handle_key_press(PSWMState *state, XKeyEvent *ev)
             spawn(state, state->config.terminal);
             break;
         case KEY_NEXT:
-            //next_client(state);
+            next_client(state);
             break;
         case KEY_LEFT: case KEY_DOWN: case KEY_UP: case KEY_RIGHT:
             if (ev->subwindow != None)
@@ -427,7 +434,7 @@ void handle_map_request(PSWMState *state, XMapRequestEvent *ev)
 {
     PSWMClient *client = init_client(state, ev->window);
     state->clients = clientlist_append(state->clients, client);
-    state->currrent_client = client;
+    state->current_client = state->clients;
 
     XMapWindow(state->dpy, ev->window);
 }
@@ -447,11 +454,13 @@ void spawn(PSWMState *state, const char *cmd)
 
 void next_client(PSWMState *state)
 {
-    if (!state->currrent_client)
+    if (!state->current_client)
         return;
 
-    PSWMClient *client = state->currrent_client->next;
-    state->currrent_client = client;
+    PSWMClient *client = state->current_client->next;
+    printf("next: client->window = %d\n", client->window);
+    state->current_client = client;
+    XRaiseWindow(state->dpy, state->current_client->window);
 }
 
 void move_window(PSWMState *state, KeySym key, XKeyEvent *ev)
