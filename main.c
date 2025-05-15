@@ -145,7 +145,7 @@ void clientlist_free(ClientList head)
 {
     PSWMClient *node = head;
 
-    while (node != NULL) {
+    while (node->next != head) {
         PSWMClient *tmp = node;
         node = node->next;
         free(tmp);
@@ -155,16 +155,17 @@ void clientlist_free(ClientList head)
 ClientList clientlist_append(ClientList head, PSWMClient *client)
 {
     PSWMClient *c = client_make_from_client(client);
-    c->next = NULL;
-
-    if (!head)
+    if (!head) {
+        c->next = c;
         return c;
+    }
 
     PSWMClient *tmp;
-    for (tmp = head; tmp->next != NULL; tmp = tmp->next)
+    for (tmp = head; tmp->next != head; tmp = tmp->next)
         ;
 
     tmp->next = c;
+    c->next = head;
     return head;
 }
 
