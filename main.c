@@ -13,6 +13,7 @@
 #define FONT_PATH "variable"
 
 #define KEY_NEW      XK_Return
+#define KEY_NEXT     XK_Tab
 #define KEY_LEFT     XK_h
 #define KEY_DOWN     XK_j
 #define KEY_UP       XK_k
@@ -33,6 +34,16 @@
 
 #define max(a, b) ((a) > (b))? (a) : (b)
 
+typedef struct _PSWMClient {
+    XWindowAttributes init_attr;
+    XWindowAttributes attr;
+    int maximized;
+
+    struct _PSWMClient *next;
+} PSWMClient;
+
+typedef PSWMClient *ClientList;
+
 typedef struct PSWMConfig {
     char *path;
 
@@ -48,8 +59,17 @@ typedef struct PSWMState {
     int exit;
 
     PSWMConfig config;
+    PSWMClient *currrent_client;
+    ClientList clients;
     Cursor cursor_drag;
 } PSWMState;
+
+PSWMClient *client_make_from_client(PSWMClient *);
+
+ClientList clientlist_new(void);
+void clientlist_free(ClientList);
+ClientList clientlist_append(ClientList, PSWMClient *);
+PSWMClient *init_client(PSWMState *, Window);
 
 int numeric_string(char *);
 
@@ -68,6 +88,7 @@ void handle_button_press(PSWMState *, XButtonEvent *);
 void handle_map_request(PSWMState *, XMapRequestEvent *);
 
 void spawn(PSWMState *, const char *);
+void next_client(PSWMState *);
 void move_window(PSWMState *, KeySym, XKeyEvent *);
 void maximize_window(PSWMState *, XKeyEvent *);
 
@@ -99,8 +120,63 @@ int main(int argc, char **argv)
 
     free(state.config.terminal);
     free(state.config.path);
+    clientlist_free(state.clients);
     XCloseDisplay(state.dpy);
     return 0;
+}
+
+PSWMClient *client_make_from_client(PSWMClient *client)
+{
+    PSWMClient *c = malloc(sizeof(PSWMClient));
+
+    c->init_attr = client->init_attr;
+    c->attr = client->attr;
+    c->maximized = client->maximized;
+
+    return c;
+}
+
+ClientList clientlist_new(void)
+{
+    return NULL;
+}
+
+void clientlist_free(ClientList head)
+{
+    PSWMClient *node = head;
+
+    while (node != NULL) {
+        PSWMClient *tmp = node;
+        node = node->next;
+        free(tmp);
+    }
+}
+
+ClientList clientlist_append(ClientList head, PSWMClient *client)
+{
+    PSWMClient *c = client_make_from_client(client);
+    c->next = NULL;
+
+    if (!head)
+        return c;
+
+    PSWMClient *tmp;
+    for (tmp = head; tmp->next != NULL; tmp = tmp->next)
+        ;
+
+    tmp->next = c;
+    return head;
+}
+
+PSWMClient *init_client(PSWMState *state, Window w)
+{
+    PSWMClient *c = malloc(sizeof(PSWMClient));
+
+    XGetWindowAttributes(state->dpy, w, &c->init_attr);
+    XGetWindowAttributes(state->dpy, w, &c->attr);
+    c->maximized = 0;
+
+    return c;
 }
 
 int numeric_string(char *s)
@@ -154,6 +230,9 @@ int setup(PSWMState *state, int display_number)
 
     grab_keys(state);
     grab_buttons(state);
+
+    state->currrent_client = NULL;
+    state->clients = clientlist_new();
 
     return 0;
 }
@@ -255,7 +334,7 @@ void grab_keys(PSWMState *state)
     XUngrabKey(state->dpy, AnyKey, AnyModifier, state->root);
 
     KeySym keys_to_grab[] = {
-        KEY_NEW, KEY_LEFT, KEY_DOWN, KEY_UP, KEY_RIGHT, KEY_MAXIMIZE,
+        KEY_NEW, KEY_NEXT, KEY_LEFT, KEY_DOWN, KEY_UP, KEY_RIGHT, KEY_MAXIMIZE,
     };
 
 #define NUM_GRABS (sizeof(keys_to_grab)/sizeof(keys_to_grab[0]))
@@ -314,6 +393,9 @@ void handle_key_press(PSWMState *state, XKeyEvent *ev)
         case KEY_NEW:
             spawn(state, state->config.terminal);
             break;
+        case KEY_NEXT:
+            //next_client(state);
+            break;
         case KEY_LEFT: case KEY_DOWN: case KEY_UP: case KEY_RIGHT:
             if (ev->subwindow != None)
                 move_window(state, key, ev);
@@ -342,7 +424,10 @@ void handle_button_press(PSWMState *state, XButtonEvent *ev)
 
 void handle_map_request(PSWMState *state, XMapRequestEvent *ev)
 {
-    printf("pswm: map request sent\n");
+    PSWMClient *client = init_client(state, ev->window);
+    state->clients = clientlist_append(state->clients, client);
+    state->currrent_client = client;
+
     XMapWindow(state->dpy, ev->window);
 }
 
@@ -357,6 +442,15 @@ void spawn(PSWMState *state, const char *cmd)
         execl(SHELL_NAME, SHELL_NAME, "-c", cmd, NULL);
         exit(0);
     }
+}
+
+void next_client(PSWMState *state)
+{
+    if (!state->currrent_client)
+        return;
+
+    PSWMClient *client = state->currrent_client->next;
+    state->currrent_client = client;
 }
 
 void move_window(PSWMState *state, KeySym key, XKeyEvent *ev)
