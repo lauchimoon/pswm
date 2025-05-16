@@ -461,7 +461,6 @@ void handle_button_press(PSWMState *state, XButtonEvent *ev)
 void handle_map_request(PSWMState *state, XMapRequestEvent *ev)
 {
     PSWMClient *client = find_client(state, ev->window);
-
     if (!client)
         client = init_client(state, ev->window);
 
