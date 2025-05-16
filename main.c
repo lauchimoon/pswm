@@ -35,6 +35,7 @@
 #define max(a, b) ((a) > (b))? (a) : (b)
 
 typedef struct _PSWMClient {
+    Window parent;
     Window window;
     XWindowAttributes init_attr;
     XWindowAttributes attr;
@@ -71,6 +72,7 @@ ClientList clientlist_new(void);
 void clientlist_free(ClientList);
 ClientList clientlist_append(ClientList, PSWMClient *);
 PSWMClient *init_client(PSWMState *, Window);
+PSWMClient *find_client(PSWMState *, Window);
 
 int numeric_string(char *);
 
@@ -130,6 +132,7 @@ PSWMClient *client_make_from_client(PSWMClient *client)
 {
     PSWMClient *c = malloc(sizeof(PSWMClient));
 
+    c->parent = client->parent;
     c->window = client->window;
     c->init_attr = client->init_attr;
     c->attr = client->attr;
@@ -175,12 +178,35 @@ PSWMClient *init_client(PSWMState *state, Window w)
 {
     PSWMClient *c = malloc(sizeof(PSWMClient));
 
-    c->window = w;
-    XGetWindowAttributes(state->dpy, c->window, &c->init_attr);
-    XGetWindowAttributes(state->dpy, c->window, &c->attr);
+    XGetWindowAttributes(state->dpy, w, &c->init_attr);
+    XGetWindowAttributes(state->dpy, w, &c->attr);
     c->maximized = 0;
+    c->window = w;
 
+    XSetWindowAttributes attr;
+    attr.override_redirect = True;
+    attr.event_mask = ChildMask | ButtonPressMask | EnterWindowMask;
+
+    c->parent = XCreateWindow(state->dpy, state->root, c->init_attr.x, c->init_attr.y,
+                              c->init_attr.width, c->init_attr.height, 2,
+                              XDefaultDepth(state->dpy, 0), CopyFromParent,
+                              XDefaultVisual(state->dpy, 0),
+                              CWOverrideRedirect | CWBorderPixel | CWEventMask, &attr);
     return c;
+}
+
+PSWMClient *find_client(PSWMState *state, Window w)
+{
+    PSWMClient *client;
+    for (client = state->clients; client && client->next != state->clients; client = client->next) {
+        if (client->window == w || client->parent == w)
+            return client;
+    }
+
+    if (client && client->window == w)
+        return client;
+
+    return NULL;
 }
 
 int numeric_string(char *s)
@@ -432,11 +458,19 @@ void handle_button_press(PSWMState *state, XButtonEvent *ev)
 
 void handle_map_request(PSWMState *state, XMapRequestEvent *ev)
 {
-    PSWMClient *client = init_client(state, ev->window);
+    PSWMClient *client = find_client(state, ev->window);
+
+    if (!client)
+        client = init_client(state, ev->window);
+
     state->clients = clientlist_append(state->clients, client);
     state->current_client = state->clients;
 
-    XMapWindow(state->dpy, ev->window);
+    XMapWindow(state->dpy, client->window);
+    XMapWindow(state->dpy, client->parent);
+    XReparentWindow(state->dpy, client->window, client->parent, 0, 0);
+
+    XRaiseWindow(state->dpy, client->parent);
 }
 
 void spawn(PSWMState *state, const char *cmd)
