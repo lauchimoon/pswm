@@ -89,6 +89,7 @@ void event_main_loop(PSWMState *);
 void handle_key_press(PSWMState *, XKeyEvent *);
 void handle_button_press(PSWMState *, XButtonEvent *);
 void handle_map_request(PSWMState *, XMapRequestEvent *);
+void handle_unmap(PSWMState *, XUnmapEvent *);
 
 void spawn(PSWMState *, const char *);
 void next_client(PSWMState *);
@@ -410,6 +411,7 @@ void event_main_loop(PSWMState *state)
                 handle_map_request(state, &ev.xmaprequest);
                 break;
             case UnmapNotify:
+                handle_unmap(state, &ev.xunmap);
                 // TODO: update window tree so next_client() won't try
                 // to raise a closed window
                 break;
@@ -469,8 +471,21 @@ void handle_map_request(PSWMState *state, XMapRequestEvent *ev)
     XMapWindow(state->dpy, client->window);
     XMapWindow(state->dpy, client->parent);
     XReparentWindow(state->dpy, client->window, client->parent, 0, 0);
-
     XRaiseWindow(state->dpy, client->parent);
+}
+
+void handle_unmap(PSWMState *state, XUnmapEvent *ev)
+{
+    PSWMClient *client = find_client(state, ev->window);
+    if (!client)
+        return;
+
+    if (ev->event == client->parent) {
+        XUnmapWindow(state->dpy, client->parent);
+        XReparentWindow(state->dpy, client->parent, state->root, client->attr.x, client->attr.y);
+        XDestroyWindow(state->dpy, client->parent);
+        client->window = None;
+    }
 }
 
 void spawn(PSWMState *state, const char *cmd)
