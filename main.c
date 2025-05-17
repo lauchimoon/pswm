@@ -102,7 +102,6 @@ void resize_window(PSWMState *, XButtonEvent *);
 
 int main(int argc, char **argv)
 {
-#if 1
     int display_number = 0;
     if (argc < 2) {
         display_number = 0;
@@ -128,30 +127,6 @@ int main(int argc, char **argv)
     free(state.config.path);
     clientlist_free(state.clients);
     XCloseDisplay(state.dpy);
-#else
-    ClientList l = clientlist_new();
-    PSWMClient *c = malloc(sizeof(PSWMClient));
-    c->maximized = 0;
-    l = clientlist_append(l, c);
-    c->maximized = 1;
-    l = clientlist_append(l, c);
-    c->maximized = 2;
-    l = clientlist_append(l, c);
-
-    l = clientlist_delete(l, l);
-    l = clientlist_delete(l, l);
-    l = clientlist_delete(l, l);
-    PSWMClient *tmp = l;
-    if (tmp) {
-        printf("%d\n", tmp->maximized);
-        tmp = tmp->next;
-        printf("%d\n", tmp->maximized);
-        tmp = tmp->next;
-        printf("%d\n", tmp->maximized);
-        tmp = tmp->next;
-        printf("%d\n", tmp->maximized);
-    }
-#endif
     return 0;
 }
 
@@ -266,7 +241,7 @@ PSWMClient *find_client(PSWMState *state, Window w)
             return client;
     }
 
-    if (client && client->window == w)
+    if (client && (client->window == w || client->parent == w))
         return client;
 
     return NULL;
@@ -577,31 +552,55 @@ void next_client(PSWMState *state)
 
 void move_window(PSWMState *state, KeySym key, XKeyEvent *ev)
 {
-    XWindowAttributes attr;
-    XGetWindowAttributes(state->dpy, ev->subwindow, &attr);
+    PSWMClient *client = find_client(state, ev->subwindow);
+    if (!client)
+        return;
+
+    XGetWindowAttributes(state->dpy, client->parent, &client->attr);
 
     switch (key) {
         case KEY_LEFT:
-            XMoveWindow(state->dpy, ev->subwindow, attr.x - 16, attr.y);
+            XMoveWindow(state->dpy, client->parent, client->attr.x - 16, client->attr.y);
+            XMoveWindow(state->dpy, client->window, 0, 0);
             break;
         case KEY_DOWN:
-            XMoveWindow(state->dpy, ev->subwindow, attr.x, attr.y + 16);
+            XMoveWindow(state->dpy, client->parent, client->attr.x, client->attr.y + 16);
+            XMoveWindow(state->dpy, client->window, 0, 0);
             break;
         case KEY_UP:
-            XMoveWindow(state->dpy, ev->subwindow, attr.x, attr.y - 16);
+            XMoveWindow(state->dpy, client->parent, client->attr.x, client->attr.y - 16);
+            XMoveWindow(state->dpy, client->window, 0, 0);
             break;
         case KEY_RIGHT:
-            XMoveWindow(state->dpy, ev->subwindow, attr.x + 16, attr.y);
+            XMoveWindow(state->dpy, client->parent, client->attr.x + 16, client->attr.y);
+            XMoveWindow(state->dpy, client->window, 0, 0);
             break;
     }
+
+    // Update init_attr to match some current attr fields
+    XGetWindowAttributes(state->dpy, client->parent, &client->attr);
+    client->init_attr.x = client->attr.x;
+    client->init_attr.y = client->attr.y;
 }
 
 void maximize_window(PSWMState *state, XKeyEvent *ev)
 {
+    PSWMClient *client = find_client(state, ev->subwindow);
+    if (!client)
+        return;
+
     int display_width = XDisplayWidth(state->dpy, 0);
     int display_height = XDisplayHeight(state->dpy, 0);
 
-    XMoveResizeWindow(state->dpy, ev->subwindow, 0, 0, display_width, display_height);
+    client->maximized = !client->maximized;
+
+    int x = client->maximized? 0 : client->init_attr.x;
+    int y = client->maximized? 0 : client->init_attr.y;
+    int width = client->maximized? display_width : client->init_attr.width;
+    int height = client->maximized? display_height : client->init_attr.height;
+
+    XMoveResizeWindow(state->dpy, client->parent, x, y, width, height);
+    XMoveResizeWindow(state->dpy, client->window, 0, 0, width, height);
 }
 
 void drag_window(PSWMState *state, XButtonEvent *ev)
