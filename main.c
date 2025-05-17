@@ -605,13 +605,13 @@ void maximize_window(PSWMState *state, XKeyEvent *ev)
 
 void drag_window(PSWMState *state, XButtonEvent *ev)
 {
-    XWindowAttributes attr;
-    XGetWindowAttributes(state->dpy, ev->subwindow, &attr);
+    PSWMClient *client = find_client(state, ev->subwindow);
+    if (!client)
+        return;
+
+    XRaiseWindow(state->dpy, client->parent);
 
     XEvent xev;
-
-    XRaiseWindow(state->dpy, ev->subwindow);
-
     for (;;) {
         XMaskEvent(state->dpy, MouseMask, &xev);
         switch (xev.type) {
@@ -621,10 +621,16 @@ void drag_window(PSWMState *state, XButtonEvent *ev)
 
                 int xdiff = xev.xbutton.x_root - ev->x_root;
                 int ydiff = xev.xbutton.y_root - ev->y_root;
-                XMoveWindow(state->dpy, ev->subwindow, attr.x + xdiff, attr.y + ydiff);
+                XMoveWindow(state->dpy, client->parent, client->attr.x + xdiff, client->attr.y + ydiff);
+                XMoveWindow(state->dpy, client->window, 0, 0);
                 break;
             case ButtonRelease:
                 ev->subwindow = None;
+
+                // Update init_attr to match some current attr fields
+                XGetWindowAttributes(state->dpy, client->parent, &client->attr);
+                client->init_attr.x = client->attr.x;
+                client->init_attr.y = client->attr.y;
                 return;
             default: break;
         }
@@ -633,13 +639,13 @@ void drag_window(PSWMState *state, XButtonEvent *ev)
 
 void resize_window(PSWMState *state, XButtonEvent *ev)
 {
-    XWindowAttributes attr;
-    XGetWindowAttributes(state->dpy, ev->subwindow, &attr);
+    PSWMClient *client = find_client(state, ev->subwindow);
+    if (!client)
+        return;
+
+    XRaiseWindow(state->dpy, client->parent);
 
     XEvent xev;
-
-    XRaiseWindow(state->dpy, ev->subwindow);
-
     for (;;) {
         XMaskEvent(state->dpy, MouseMask, &xev);
         switch (xev.type) {
@@ -649,11 +655,20 @@ void resize_window(PSWMState *state, XButtonEvent *ev)
 
                 int xdiff = xev.xbutton.x_root - ev->x_root;
                 int ydiff = xev.xbutton.y_root - ev->y_root;
-                XResizeWindow(state->dpy, ev->subwindow,
-                              max(1, attr.width + xdiff), max(1, attr.height + ydiff));
+
+                int width = max(1, client->attr.width + xdiff);
+                int height = max(1, client->attr.height + ydiff);
+
+                XResizeWindow(state->dpy, client->parent, width, height);
+                XResizeWindow(state->dpy, client->window, width, height);
                 break;
             case ButtonRelease:
                 ev->subwindow = None;
+
+                // Update init_attr to match some current attr fields
+                XGetWindowAttributes(state->dpy, client->parent, &client->attr);
+                client->init_attr.width = client->attr.width;
+                client->init_attr.width = client->attr.width;
                 return;
             default: break;
         }
