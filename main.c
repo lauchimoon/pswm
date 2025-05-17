@@ -71,6 +71,7 @@ PSWMClient *client_make_from_client(PSWMClient *);
 ClientList clientlist_new(void);
 void clientlist_free(ClientList);
 ClientList clientlist_append(ClientList, PSWMClient *);
+ClientList clientlist_delete(ClientList, PSWMClient *);
 PSWMClient *init_client(PSWMState *, Window);
 PSWMClient *find_client(PSWMState *, Window);
 
@@ -101,6 +102,7 @@ void resize_window(PSWMState *, XButtonEvent *);
 
 int main(int argc, char **argv)
 {
+#if 1
     int display_number = 0;
     if (argc < 2) {
         display_number = 0;
@@ -126,6 +128,30 @@ int main(int argc, char **argv)
     free(state.config.path);
     clientlist_free(state.clients);
     XCloseDisplay(state.dpy);
+#else
+    ClientList l = clientlist_new();
+    PSWMClient *c = malloc(sizeof(PSWMClient));
+    c->maximized = 0;
+    l = clientlist_append(l, c);
+    c->maximized = 1;
+    l = clientlist_append(l, c);
+    c->maximized = 2;
+    l = clientlist_append(l, c);
+
+    l = clientlist_delete(l, l);
+    l = clientlist_delete(l, l);
+    l = clientlist_delete(l, l);
+    PSWMClient *tmp = l;
+    if (tmp) {
+        printf("%d\n", tmp->maximized);
+        tmp = tmp->next;
+        printf("%d\n", tmp->maximized);
+        tmp = tmp->next;
+        printf("%d\n", tmp->maximized);
+        tmp = tmp->next;
+        printf("%d\n", tmp->maximized);
+    }
+#endif
     return 0;
 }
 
@@ -172,6 +198,42 @@ ClientList clientlist_append(ClientList head, PSWMClient *client)
 
     tmp->next = c;
     c->next = head;
+    return head;
+}
+
+ClientList clientlist_delete(ClientList head, PSWMClient *client)
+{
+    if (!client || !head)
+        return head;
+
+    if (head == head->next) {
+        free(head);
+        return NULL;
+    }
+
+    PSWMClient *tmp;
+    if (client == head) {
+        // We must modify who the last pointer points to
+        // Since we're deleting head, go to the end and point to head->next
+        for (tmp = head; tmp->next != head; tmp = tmp->next)
+            ;
+        tmp->next = head->next;
+
+        // Now free head
+        tmp = head;
+        head = head->next;
+        free(tmp);
+        return head;
+    }
+
+    for (tmp = head; tmp->next != head; tmp = tmp->next) {
+        if (tmp->next == client) {
+            free(tmp->next);
+            tmp->next = client->next;
+            break;
+        }
+    }
+
     return head;
 }
 
@@ -484,6 +546,8 @@ void handle_unmap(PSWMState *state, XUnmapEvent *ev)
         XReparentWindow(state->dpy, client->parent, state->root, client->attr.x, client->attr.y);
         XDestroyWindow(state->dpy, client->parent);
         client->window = None;
+        client->parent = None;
+        state->clients = clientlist_delete(state->clients, client);
     }
 }
 
@@ -502,13 +566,12 @@ void spawn(PSWMState *state, const char *cmd)
 
 void next_client(PSWMState *state)
 {
-    if (!state->current_client)
+    if (!state->clients || !state->current_client)
         return;
 
     PSWMClient *client = state->current_client->next;
-    printf("next: client->window = %d\n", client->window);
     state->current_client = client;
-    XRaiseWindow(state->dpy, state->current_client->window);
+    XRaiseWindow(state->dpy, state->current_client->parent);
 }
 
 void move_window(PSWMState *state, KeySym key, XKeyEvent *ev)
