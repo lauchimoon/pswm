@@ -89,6 +89,7 @@ void event_main_loop(PSWMState *);
 
 void handle_key_press(PSWMState *, XKeyEvent *);
 void handle_button_press(PSWMState *, XButtonEvent *);
+void handle_configure_request(PSWMState *, XConfigureRequestEvent *);
 void handle_map_request(PSWMState *, XMapRequestEvent *);
 void handle_unmap(PSWMState *, XUnmapEvent *);
 
@@ -444,13 +445,14 @@ void event_main_loop(PSWMState *state)
                 if (ev.xbutton.subwindow != None)
                     handle_button_press(state, &ev.xbutton);
                 break;
+            case ConfigureRequest:
+                handle_configure_request(state, &ev.xconfigurerequest);
+                break;
             case MapRequest:
                 handle_map_request(state, &ev.xmaprequest);
                 break;
             case UnmapNotify:
                 handle_unmap(state, &ev.xunmap);
-                // TODO: update window tree so next_client() won't try
-                // to raise a closed window
                 break;
             default:
                 break;
@@ -495,6 +497,20 @@ void handle_button_press(PSWMState *state, XButtonEvent *ev)
     }
 }
 
+void handle_configure_request(PSWMState *state, XConfigureRequestEvent *ev)
+{
+    PSWMClient *client = find_client(state, ev->window);
+    XWindowChanges wc;
+
+    wc.x = ev->x;
+    wc.y = ev->y;
+    wc.width = ev->width;
+    wc.height = ev->height;
+
+    Window window_to_configure = client? client->parent : ev->window;
+    XConfigureWindow(state->dpy, window_to_configure, ev->value_mask, &wc);
+}
+
 void handle_map_request(PSWMState *state, XMapRequestEvent *ev)
 {
     PSWMClient *client = find_client(state, ev->window);
@@ -508,6 +524,7 @@ void handle_map_request(PSWMState *state, XMapRequestEvent *ev)
     XMapWindow(state->dpy, client->parent);
     XReparentWindow(state->dpy, client->window, client->parent, 0, 0);
     XRaiseWindow(state->dpy, client->parent);
+    XSetInputFocus(state->dpy, client->window, RevertToPointerRoot, CurrentTime);
 }
 
 void handle_unmap(PSWMState *state, XUnmapEvent *ev)
@@ -557,6 +574,8 @@ void move_window(PSWMState *state, KeySym key, XKeyEvent *ev)
         return;
 
     XGetWindowAttributes(state->dpy, client->parent, &client->attr);
+    XRaiseWindow(state->dpy, client->parent);
+    XSetInputFocus(state->dpy, client->window, RevertToPointerRoot, CurrentTime);
 
     switch (key) {
         case KEY_LEFT:
@@ -601,6 +620,8 @@ void maximize_window(PSWMState *state, XKeyEvent *ev)
 
     XMoveResizeWindow(state->dpy, client->parent, x, y, width, height);
     XMoveResizeWindow(state->dpy, client->window, 0, 0, width, height);
+    XRaiseWindow(state->dpy, client->parent);
+    XSetInputFocus(state->dpy, client->window, RevertToPointerRoot, CurrentTime);
 }
 
 void drag_window(PSWMState *state, XButtonEvent *ev)
@@ -610,6 +631,7 @@ void drag_window(PSWMState *state, XButtonEvent *ev)
         return;
 
     XRaiseWindow(state->dpy, client->parent);
+    XSetInputFocus(state->dpy, client->window, RevertToPointerRoot, CurrentTime);
 
     XEvent xev;
     for (;;) {
@@ -631,6 +653,7 @@ void drag_window(PSWMState *state, XButtonEvent *ev)
                 XGetWindowAttributes(state->dpy, client->parent, &client->attr);
                 client->init_attr.x = client->attr.x;
                 client->init_attr.y = client->attr.y;
+
                 return;
             default: break;
         }
@@ -644,6 +667,7 @@ void resize_window(PSWMState *state, XButtonEvent *ev)
         return;
 
     XRaiseWindow(state->dpy, client->parent);
+    XSetInputFocus(state->dpy, client->window, RevertToPointerRoot, CurrentTime);
 
     XEvent xev;
     for (;;) {
