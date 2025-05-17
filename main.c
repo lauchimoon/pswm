@@ -572,6 +572,7 @@ void next_client(PSWMState *state)
     PSWMClient *client = state->current_client->next;
     state->current_client = client;
     XRaiseWindow(state->dpy, state->current_client->parent);
+    XSetInputFocus(state->dpy, state->current_client->window, RevertToPointerRoot, CurrentTime);
 }
 
 void move_window(PSWMState *state, KeySym key, XKeyEvent *ev)
