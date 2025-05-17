@@ -666,6 +666,8 @@ void resize_window(PSWMState *state, XButtonEvent *ev)
     if (!client)
         return;
 
+    int width, height;
+
     XRaiseWindow(state->dpy, client->parent);
     XSetInputFocus(state->dpy, client->window, RevertToPointerRoot, CurrentTime);
 
@@ -680,13 +682,13 @@ void resize_window(PSWMState *state, XButtonEvent *ev)
                 int xdiff = xev.xbutton.x_root - ev->x_root;
                 int ydiff = xev.xbutton.y_root - ev->y_root;
 
-                int width = max(1, client->attr.width + xdiff);
-                int height = max(1, client->attr.height + ydiff);
-
-                XResizeWindow(state->dpy, client->parent, width, height);
-                XResizeWindow(state->dpy, client->window, width, height);
+                width = max(1, client->attr.width + xdiff);
+                height = max(1, client->attr.height + ydiff);
                 break;
             case ButtonRelease:
+                XResizeWindow(state->dpy, client->parent, width, height);
+                XResizeWindow(state->dpy, client->window, width, height);
+
                 ev->subwindow = None;
 
                 // Update init_attr to match some current attr fields
