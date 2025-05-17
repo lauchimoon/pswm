@@ -506,8 +506,9 @@ void next_client(PSWMState *state)
         return;
 
     PSWMClient *client = state->current_client->next;
+    printf("next: client->window = %d\n", client->window);
     state->current_client = client;
-    XRaiseWindow(state->dpy, state->current_client->parent);
+    XRaiseWindow(state->dpy, state->current_client->window);
 }
 
 void move_window(PSWMState *state, KeySym key, XKeyEvent *ev)
