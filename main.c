@@ -697,11 +697,11 @@ void resize_window(PSWMState *state, XButtonEvent *ev)
 
                 width = max(1, client->attr.width + xdiff);
                 height = max(1, client->attr.height + ydiff);
+                XResizeWindow(state->dpy, client->parent, width, height);
+                XResizeWindow(state->dpy, client->window, width, height);
                 break;
             case ButtonRelease:
                 XUngrabPointer(state->dpy, CurrentTime);
-                XResizeWindow(state->dpy, client->parent, width, height);
-                XResizeWindow(state->dpy, client->window, width, height);
 
                 ev->subwindow = None;
 
