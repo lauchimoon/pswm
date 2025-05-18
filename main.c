@@ -64,6 +64,7 @@ typedef struct PSWMState {
     PSWMClient *current_client;
     ClientList clients;
     Cursor cursor_drag;
+    Cursor cursor_resize;
 } PSWMState;
 
 PSWMClient *client_make_from_client(PSWMClient *);
@@ -293,6 +294,7 @@ int setup(PSWMState *state, int display_number)
     read_config_file(f, &state->config);
 
     state->cursor_drag = XCreateFontCursor(state->dpy, XC_fleur);
+    state->cursor_resize = XCreateFontCursor(state->dpy, XC_plus);
 
     unsigned int input_mask = KeyPressMask|MouseMask|ChildMask;
     XSelectInput(state->dpy, state->root, input_mask);
@@ -630,6 +632,11 @@ void drag_window(PSWMState *state, XButtonEvent *ev)
     if (!client)
         return;
 
+    if (XGrabPointer(state->dpy, state->root,
+                     False, MouseMask, GrabModeAsync, GrabModeAsync,
+                     None, state->cursor_drag, CurrentTime) != GrabSuccess)
+        return;
+
     XRaiseWindow(state->dpy, client->parent);
     XSetInputFocus(state->dpy, client->window, RevertToPointerRoot, CurrentTime);
 
@@ -647,6 +654,7 @@ void drag_window(PSWMState *state, XButtonEvent *ev)
                 XMoveWindow(state->dpy, client->window, 0, 0);
                 break;
             case ButtonRelease:
+                XUngrabPointer(state->dpy, CurrentTime);
                 ev->subwindow = None;
 
                 // Update init_attr to match some current attr fields
@@ -664,6 +672,11 @@ void resize_window(PSWMState *state, XButtonEvent *ev)
 {
     PSWMClient *client = find_client(state, ev->subwindow);
     if (!client)
+        return;
+
+    if (XGrabPointer(state->dpy, state->root,
+                     False, MouseMask, GrabModeAsync, GrabModeAsync,
+                     None, state->cursor_resize, CurrentTime) != GrabSuccess)
         return;
 
     int width, height;
@@ -686,6 +699,7 @@ void resize_window(PSWMState *state, XButtonEvent *ev)
                 height = max(1, client->attr.height + ydiff);
                 break;
             case ButtonRelease:
+                XUngrabPointer(state->dpy, CurrentTime);
                 XResizeWindow(state->dpy, client->parent, width, height);
                 XResizeWindow(state->dpy, client->window, width, height);
 
