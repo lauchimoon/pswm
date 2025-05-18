@@ -93,6 +93,7 @@ void handle_button_press(PSWMState *, XButtonEvent *);
 void handle_configure_request(PSWMState *, XConfigureRequestEvent *);
 void handle_map_request(PSWMState *, XMapRequestEvent *);
 void handle_unmap(PSWMState *, XUnmapEvent *);
+void handle_motion(PSWMState *, XMotionEvent *);
 
 void spawn(PSWMState *, const char *);
 void next_client(PSWMState *);
@@ -456,6 +457,9 @@ void event_main_loop(PSWMState *state)
             case UnmapNotify:
                 handle_unmap(state, &ev.xunmap);
                 break;
+            case MotionNotify:
+                handle_motion(state, &ev.xmotion);
+                break;
             default:
                 break;
         }
@@ -543,6 +547,15 @@ void handle_unmap(PSWMState *state, XUnmapEvent *ev)
         client->parent = None;
         state->clients = clientlist_delete(state->clients, client);
     }
+}
+
+void handle_motion(PSWMState *state, XMotionEvent *ev)
+{
+    PSWMClient *client = find_client(state, ev->subwindow);
+    if (!client)
+        return;
+
+    XSetInputFocus(state->dpy, client->window, RevertToPointerRoot, CurrentTime);
 }
 
 void spawn(PSWMState *state, const char *cmd)
