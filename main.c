@@ -93,7 +93,7 @@ void handle_button_press(PSWMState *, XButtonEvent *);
 void handle_configure_request(PSWMState *, XConfigureRequestEvent *);
 void handle_map_request(PSWMState *, XMapRequestEvent *);
 void handle_unmap(PSWMState *, XUnmapEvent *);
-void handle_motion(PSWMState *, XMotionEvent *);
+void handle_enter(PSWMState *, XCrossingEvent *);
 
 void spawn(PSWMState *, const char *);
 void next_client(PSWMState *);
@@ -219,14 +219,16 @@ PSWMClient *init_client(PSWMState *state, Window w)
 {
     PSWMClient *c = malloc(sizeof(PSWMClient));
 
-    XGetWindowAttributes(state->dpy, w, &c->init_attr);
-    XGetWindowAttributes(state->dpy, w, &c->attr);
-    c->maximized = 0;
     c->window = w;
+    c->maximized = 0;
+    XGetWindowAttributes(state->dpy, c->window, &c->init_attr);
+    XGetWindowAttributes(state->dpy, c->window, &c->attr);
+
+    XSelectInput(state->dpy, c->window, EnterWindowMask);
 
     XSetWindowAttributes attr;
     attr.override_redirect = True;
-    attr.event_mask = ChildMask | ButtonPressMask | EnterWindowMask;
+    attr.event_mask = ChildMask | ButtonPressMask | KeyPressMask | EnterWindowMask;
 
     c->parent = XCreateWindow(state->dpy, state->root, c->init_attr.x, c->init_attr.y,
                               c->init_attr.width, c->init_attr.height, 2,
@@ -457,8 +459,8 @@ void event_main_loop(PSWMState *state)
             case UnmapNotify:
                 handle_unmap(state, &ev.xunmap);
                 break;
-            case MotionNotify:
-                handle_motion(state, &ev.xmotion);
+            case EnterNotify:
+                handle_enter(state, &ev.xcrossing);
                 break;
             default:
                 break;
@@ -549,9 +551,14 @@ void handle_unmap(PSWMState *state, XUnmapEvent *ev)
     }
 }
 
-void handle_motion(PSWMState *state, XMotionEvent *ev)
+void handle_enter(PSWMState *state, XCrossingEvent *ev)
 {
-    PSWMClient *client = find_client(state, ev->subwindow);
+    if (ev->mode != NotifyNormal || ev->mode == NotifyInferior)
+        return;
+
+    Window window_to_enter = (ev->subwindow != None)? ev->subwindow : ev->window;
+
+    PSWMClient *client = find_client(state, window_to_enter);
     if (!client)
         return;
 
