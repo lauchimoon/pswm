@@ -288,7 +288,6 @@ int setup(PSWMState *state, int display_number)
 
     int dummy;
     state->has_randr = XRRQueryExtension(state->dpy, &state->randr_base, &dummy);
-    printf("%d %d | %d\n", state->has_randr, state->randr_base, state->randr_base + RRScreenChangeNotify);
 
 #define PATH_SIZE 256
     state->config.path = calloc(PATH_SIZE + 1, sizeof(char));
