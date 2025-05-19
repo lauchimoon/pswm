@@ -9,6 +9,7 @@
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
 #include <X11/cursorfont.h>
+#include <X11/extensions/Xrandr.h>
 
 #define FONT_PATH "variable"
 
@@ -59,6 +60,8 @@ typedef struct PSWMState {
     XFontStruct *font;
     Window root;
     int exit;
+    int has_randr;
+    int randr_base;
 
     PSWMConfig config;
     PSWMClient *current_client;
@@ -283,6 +286,10 @@ int setup(PSWMState *state, int display_number)
     state->root = DefaultRootWindow(state->dpy);
     state->exit = 0;
 
+    int dummy;
+    state->has_randr = XRRQueryExtension(state->dpy, &state->randr_base, &dummy);
+    printf("%d %d | %d\n", state->has_randr, state->randr_base, state->randr_base + RRScreenChangeNotify);
+
 #define PATH_SIZE 256
     state->config.path = calloc(PATH_SIZE + 1, sizeof(char));
     strcat(state->config.path, getenv("HOME"));
@@ -301,6 +308,7 @@ int setup(PSWMState *state, int display_number)
 
     unsigned int input_mask = KeyPressMask|MouseMask|ChildMask;
     XSelectInput(state->dpy, state->root, input_mask);
+    XRRSelectInput(state->dpy, state->root, RRScreenChangeNotifyMask);
 
     grab_keys(state);
     grab_buttons(state);
@@ -463,9 +471,12 @@ void event_main_loop(PSWMState *state)
                 handle_enter(state, &ev.xcrossing);
                 break;
             default:
+                if (state->has_randr && ev.type == state->randr_base + RRScreenChangeNotify)
+                    XRRUpdateConfiguration(&ev);
                 break;
         }
     }
+
 }
 
 void handle_key_press(PSWMState *state, XKeyEvent *ev)
