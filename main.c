@@ -91,6 +91,7 @@ void grab_keys(PSWMState *);
 void grab_buttons(PSWMState *);
 void event_main_loop(PSWMState *);
 
+int handle_xerror(Display *, XErrorEvent *);
 void handle_key_press(PSWMState *, XKeyEvent *);
 void handle_button_press(PSWMState *, XButtonEvent *);
 void handle_configure_request(PSWMState *, XConfigureRequestEvent *);
@@ -276,6 +277,7 @@ int setup(PSWMState *state, int display_number)
         printf("pswm: Can't open display %s\n", display_name);
         return 1;
     }
+    XSetErrorHandler(handle_xerror);
 
     state->font = XLoadQueryFont(state->dpy, FONT_PATH);
     if (!state->font) {
@@ -476,6 +478,15 @@ void event_main_loop(PSWMState *state)
         }
     }
 
+}
+
+int handle_xerror(Display *dpy, XErrorEvent *ev)
+{
+    char error_text[1024];
+    XGetErrorText(dpy, ev->error_code, error_text, 1024);
+    printf("pswm: X Error: %s\n", error_text);
+
+    return 0;
 }
 
 void handle_key_press(PSWMState *state, XKeyEvent *ev)
