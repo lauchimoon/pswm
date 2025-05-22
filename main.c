@@ -235,7 +235,7 @@ PSWMClient *init_client(PSWMState *state, Window w)
     attr.event_mask = ChildMask | ButtonPressMask | KeyPressMask | EnterWindowMask;
 
     c->parent = XCreateWindow(state->dpy, state->root, c->init_attr.x, c->init_attr.y,
-                              c->init_attr.width, c->init_attr.height, 2,
+                              c->init_attr.width, c->init_attr.height, 0,
                               XDefaultDepth(state->dpy, 0), CopyFromParent,
                               XDefaultVisual(state->dpy, 0),
                               CWOverrideRedirect | CWBorderPixel | CWEventMask, &attr);
